@@ -34,10 +34,51 @@ Full audit: [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md)
 
 ## Building
 
+Requirements: JDK 17, Android SDK with API 35. Android Studio is optional but makes life easier.
+
+```bash
+git clone https://github.com/Nomadcxx/openclaw-assistant.git
+cd openclaw-assistant
+```
+
+Firebase is used for Crashlytics but is not required. If you don't have a `google-services.json`, create a stub at `app/google-services.json`:
+
+```json
+{
+  "project_info": { "project_number": "000000000000", "project_id": "stub", "storage_bucket": "stub.appspot.com" },
+  "client": [{ "client_info": { "mobilesdk_app_id": "1:000000000000:android:0000000000000001", "android_client_info": { "package_name": "com.openclaw.assistant" } }, "api_key": [{ "current_key": "stub" }] }],
+  "configuration_version": "1"
+}
+```
+
+Build a debug APK:
+
 ```bash
 ./gradlew assembleDebug
-./gradlew assembleRelease   # requires signing config in local.properties
 ```
+
+The APK lands in `app/build/outputs/apk/debug/`. Install it with:
+
+```bash
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+For a signed release build, add your keystore details to `local.properties`:
+
+```properties
+storeFile=/path/to/your/release.keystore
+storePassword=your_store_password
+keyAlias=your_key_alias
+keyPassword=your_key_password
+```
+
+Then:
+
+```bash
+./gradlew assembleRelease
+```
+
+Release APK goes to `app/build/outputs/apk/release/`.
 
 ## License
 
