@@ -21,6 +21,10 @@ class SmsManager(private val context: Context) {
 
     private val json = JsonConfig
     @Volatile private var permissionRequester: PermissionRequester? = null
+    // Rate limiting: prevent SMS abuse
+    private val smsTimestamps = mutableListOf<Long>()
+    private val perNumberTimestamps = mutableMapOf<String, MutableList<Long>>()
+    private val rateLimitLock = Any()
 
     data class SendResult(
         val ok: Boolean,
@@ -51,6 +55,11 @@ class SmsManager(private val context: Context) {
 
     companion object {
         internal val JsonConfig = Json { ignoreUnknownKeys = true }
+
+        // Rate limits
+        private const val MAX_SMS_PER_MINUTE = 20
+        private const val MAX_SMS_PER_NUMBER_PER_MINUTE = 5
+        private const val RATE_LIMIT_WINDOW_MS = 60_000L
 
         internal fun parseParams(paramsJson: String?, json: Json = JsonConfig): ParseResult {
             val params = paramsJson?.trim().orEmpty()
@@ -125,6 +134,43 @@ class SmsManager(private val context: Context) {
         return hasSmsPermission() && hasTelephonyFeature()
     }
 
+    /**
+     * Check if sending to this number would exceed rate limits.
+     * Returns null if allowed, or an error string if rate-limited.
+     */
+    private fun checkRateLimit(to: String): String? {
+        synchronized(rateLimitLock) {
+            val now = System.currentTimeMillis()
+            val cutoff = now - RATE_LIMIT_WINDOW_MS
+
+            // Clean expired timestamps
+            smsTimestamps.removeAll { it < cutoff }
+
+            // Check global limit
+            if (smsTimestamps.size >= MAX_SMS_PER_MINUTE) {
+                return "RATE_LIMITED: too many SMS sent, try again later"
+            }
+
+            // Check per-number limit
+            val numberKey = to.trim().lowercase()
+            val numberStamps = perNumberTimestamps.getOrPut(numberKey) { mutableListOf() }
+            numberStamps.removeAll { it < cutoff }
+
+            if (numberStamps.size >= MAX_SMS_PER_NUMBER_PER_MINUTE) {
+                return "RATE_LIMITED: too many SMS to this number, try again later"
+            }
+
+            // Record this send
+            smsTimestamps.add(now)
+            numberStamps.add(now)
+
+            // Clean up empty entries
+            perNumberTimestamps.entries.removeAll { it.value.isEmpty() }
+
+            return null
+        }
+    }
+
     fun hasTelephonyFeature(): Boolean {
         return context.packageManager?.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) == true
     }
@@ -161,6 +207,16 @@ class SmsManager(private val context: Context) {
             )
         }
         val params = (parseResult as ParseResult.Ok).params
+
+        // Check rate limits before sending
+        val rateLimitError = checkRateLimit(params.to)
+        if (rateLimitError != null) {
+            return errorResult(
+                error = rateLimitError,
+                to = params.to,
+                message = params.message,
+            )
+        }
 
         return try {
             val smsManager = context.getSystemService(AndroidSmsManager::class.java)

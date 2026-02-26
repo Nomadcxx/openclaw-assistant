@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup rules for Android Auto Backup (API 30 and below).
+  Exclude sensitive cryptographic material, device identity, and auth data.
+  data_extraction_rules.xml handles API 31+ separately.
+-->
 <full-backup-content>
-  <include domain="file" path="." />
+  <!-- Only back up non-sensitive application data -->
+  <include domain="sharedpref" path="." />
+  <exclude domain="sharedpref" path="__androidx_security_crypto_encrypted_prefs__" />
+  <exclude domain="sharedpref" path="openclaw_secure_prefs" />
+  <exclude domain="sharedpref" path="__openclaw_tink_keyset__" />
+  <exclude domain="file" path="." />
+  <include domain="database" path="." />
 </full-backup-content>

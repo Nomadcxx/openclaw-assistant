@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import com.openclaw.assistant.BuildConfig
 import kotlin.coroutines.resume
+import java.net.URI
 
 class CanvasController {
   enum class SnapshotFormat(val rawValue: String) {
@@ -31,6 +32,9 @@ class CanvasController {
   @Volatile private var debugStatusEnabled: Boolean = false
   @Volatile private var debugStatusTitle: String? = null
   @Volatile private var debugStatusSubtitle: String? = null
+
+  private val ALLOWED_URL_SCHEMES = setOf("https", "http")
+  private val MAX_EVAL_JS_LENGTH = 1_000_000
 
   private val scaffoldAssetUrl = "file:///android_asset/CanvasScaffold/scaffold.html"
 
@@ -47,7 +51,18 @@ class CanvasController {
 
   fun navigate(url: String) {
     val trimmed = url.trim()
-    this.url = if (trimmed.isBlank() || trimmed == "/") null else trimmed
+    if (trimmed.isBlank() || trimmed == "/") {
+      this.url = null
+      reload()
+      return
+    }
+    if (!isAllowedUrl(trimmed)) {
+      if (BuildConfig.DEBUG) {
+        Log.w("OpenClawCanvas", "Blocked navigation to disallowed URL: $trimmed")
+      }
+      return
+    }
+    this.url = trimmed
     reload()
   }
 
@@ -87,12 +102,31 @@ class CanvasController {
           Log.d("OpenClawCanvas", "load scaffold: $scaffoldAssetUrl")
         }
         wv.loadUrl(scaffoldAssetUrl)
-      } else {
+      } else if (isAllowedUrl(currentUrl)) {
         if (BuildConfig.DEBUG) {
           Log.d("OpenClawCanvas", "load url: $currentUrl")
         }
         wv.loadUrl(currentUrl)
+      } else {
+        if (BuildConfig.DEBUG) {
+          Log.w("OpenClawCanvas", "Blocked load of disallowed URL: $currentUrl")
+        }
+        url = null
+        wv.loadUrl(scaffoldAssetUrl)
       }
+    }
+  }
+
+  private fun isAllowedUrl(url: String): Boolean {
+    val trimmed = url.trim()
+    if (trimmed == scaffoldAssetUrl) return true
+    if (trimmed.startsWith("file:///android_asset/")) return true
+    return try {
+      val uri = URI(trimmed)
+      val scheme = uri.scheme?.lowercase() ?: return false
+      scheme in ALLOWED_URL_SCHEMES
+    } catch (_: Throwable) {
+      false
     }
   }
 
@@ -125,6 +159,9 @@ class CanvasController {
   suspend fun eval(javaScript: String): String =
     withContext(Dispatchers.Main) {
       val wv = webView ?: throw IllegalStateException("no webview")
+      if (javaScript.length > MAX_EVAL_JS_LENGTH) {
+        throw IllegalArgumentException("INVALID_REQUEST: JavaScript exceeds maximum length")
+      }
       suspendCancellableCoroutine { cont ->
         wv.evaluateJavascript(javaScript) { result ->
           cont.resume(result ?: "")

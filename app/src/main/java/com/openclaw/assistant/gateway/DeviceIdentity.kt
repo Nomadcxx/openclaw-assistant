@@ -3,6 +3,7 @@ package com.openclaw.assistant.gateway
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import com.openclaw.assistant.BuildConfig
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.google.crypto.tink.CleartextKeysetHandle
 import com.google.crypto.tink.JsonKeysetWriter
@@ -103,7 +104,7 @@ class DeviceIdentity(context: Context) {
                          val hash = digest.digest(rawKey)
                          deviceId = bytesToHex(hash)
                          
-                         Log.d(TAG, "Initialized deviceId=$deviceId")
+                         if (BuildConfig.DEBUG) Log.d(TAG, "Initialized deviceId=$deviceId")
                     }
                 }
             }

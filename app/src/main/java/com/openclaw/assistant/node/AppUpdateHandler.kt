@@ -270,6 +270,11 @@ class AppUpdateHandler(
           android.util.Log.w("openclaw", "app.update: PackageInstaller session committed, waiting for user confirmation")
         } catch (err: Throwable) {
           android.util.Log.e("openclaw", "app.update: async error", err)
+          // Clean up partial downloads on failure
+          try {
+            val cleanupFile = java.io.File(java.io.File(appContext.cacheDir, "updates"), "update.apk")
+            if (cleanupFile.exists()) cleanupFile.delete()
+          } catch (_: Throwable) { /* ignore cleanup errors */ }
           notifManager.cancel(notifId)
           notifManager.notify(notifId, android.app.Notification.Builder(appContext, channelId)
             .setSmallIcon(android.R.drawable.stat_notify_error)

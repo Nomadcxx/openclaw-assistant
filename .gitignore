@@ -6,3 +6,8 @@ build/
 
 *.keystore
 **/google-services.json
+
+# Security: prevent sensitive file commits
+*.log
+firebase-debug.log
+app/release/

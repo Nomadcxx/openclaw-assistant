@@ -1,6 +1,7 @@
 package com.openclaw.assistant.gateway
 
 import android.util.Log
+import com.openclaw.assistant.BuildConfig
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -319,16 +320,16 @@ class GatewaySession(
       // Trying token first causes the server to close the WebSocket on rejection,
       // making the subsequent password request time out on the already-closed connection.
       if (trimmedToken.isEmpty() && trimmedPassword.isNotEmpty()) {
-        Log.d(TAG, "No token configured, using password auth directly")
+        if (BuildConfig.DEBUG) Log.d(TAG, "No token configured, using password auth directly")
         val passwordPayload = buildConnectParams(identity, connectNonce, "", trimmedPassword)
         val passwordRes = request("connect", passwordPayload, timeoutMs = 8_000)
-        Log.d(TAG, "Password auth response: ok=${passwordRes.ok} error=${passwordRes.error?.message}")
+        if (BuildConfig.DEBUG) Log.d(TAG, "Password auth response: ok=${passwordRes.ok} error=${passwordRes.error?.message}")
         if (passwordRes.ok) {
           handleConnectSuccess(passwordRes, canFallbackToShared, identityId)
           return
         }
         val msg = passwordRes.error?.message ?: "connect failed"
-        Log.w(TAG, "Password auth failed: $msg (code=${passwordRes.error?.code})")
+        if (BuildConfig.DEBUG) Log.w(TAG, "Password auth failed: $msg (code=${passwordRes.error?.code})")
         throw IllegalStateException(msg)
       }
 
@@ -347,10 +348,10 @@ class GatewaySession(
 
         // Token auth failed, try password auth if password is provided
         if (trimmedPassword.isNotEmpty()) {
-          Log.d(TAG, "Token auth failed, trying password auth...")
+          if (BuildConfig.DEBUG) Log.d(TAG, "Token auth failed, trying password auth...")
           val passwordPayload = buildConnectParams(identity, connectNonce, "", trimmedPassword)
           val passwordRes = request("connect", passwordPayload, timeoutMs = 8_000)
-          Log.d(TAG, "Password auth response: ok=${passwordRes.ok} error=${passwordRes.error?.message}")
+          if (BuildConfig.DEBUG) Log.d(TAG, "Password auth response: ok=${passwordRes.ok} error=${passwordRes.error?.message}")
 
           if (passwordRes.ok) {
             handleConnectSuccess(passwordRes, canFallbackToShared, identityId)
@@ -359,7 +360,7 @@ class GatewaySession(
 
           // Both failed
           val msg = passwordRes.error?.message ?: "connect failed"
-          Log.w(TAG, "Password auth failed: $msg (code=${passwordRes.error?.code})")
+          if (BuildConfig.DEBUG) Log.w(TAG, "Password auth failed: $msg (code=${passwordRes.error?.code})")
           if (canFallbackToShared) {
             deviceAuthStore.clearToken(identityId, options.role)
           }
@@ -633,6 +634,7 @@ class GatewaySession(
 
   private suspend fun runLoop() {
     var attempt = 0
+    val maxAttempts = 50 // Stop trying after ~50 attempts (roughly 5+ minutes of backoff)
     while (scope.isActive) {
       val target = desired
       if (target == null) {
@@ -643,11 +645,18 @@ class GatewaySession(
       }
 
       try {
-        onDisconnected(if (attempt == 0) "Connecting…" else "Reconnecting…")
+        onDisconnected(if (attempt == 0) "Connecting…" else "Reconnecting… (${attempt}/$maxAttempts)")
         connectOnce(target)
         attempt = 0
       } catch (err: Throwable) {
         attempt += 1
+        if (attempt >= maxAttempts) {
+          onDisconnected("Connection failed after $maxAttempts attempts. Tap to retry.")
+          // Wait longer before resetting, give user time to see message
+          delay(30_000)
+          attempt = 0
+          continue
+        }
         onDisconnected("Gateway error: ${err.message ?: err::class.java.simpleName}")
         val sleepMs = minOf(8_000L, (350.0 * Math.pow(1.7, attempt.toDouble())).toLong())
         delay(sleepMs)

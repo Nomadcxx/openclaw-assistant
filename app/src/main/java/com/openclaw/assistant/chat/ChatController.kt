@@ -1,6 +1,7 @@
 package com.openclaw.assistant.chat
 
 import android.util.Log
+import com.openclaw.assistant.BuildConfig
 import com.openclaw.assistant.gateway.GatewaySession
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -88,11 +89,11 @@ class ChatController(
 
   fun applyMainSessionKey(mainSessionKey: String) {
     val trimmed = mainSessionKey.trim()
-    Log.d("AgentDbg", "ChatController.applyMainSessionKey: current=${_sessionKey.value} candidate=$trimmed")
+    if (BuildConfig.DEBUG) Log.d("AgentDbg", "ChatController.applyMainSessionKey: current=${_sessionKey.value} candidate=$trimmed")
     if (trimmed.isEmpty()) return
     if (_sessionKey.value == trimmed) return
     if (_sessionKey.value != "main") return
-    Log.d("AgentDbg", "ChatController.applyMainSessionKey: applying $trimmed (was 'main')")
+    if (BuildConfig.DEBUG) Log.d("AgentDbg", "ChatController.applyMainSessionKey: applying $trimmed (was 'main')")
     _sessionKey.value = trimmed
     bootstrapJob?.cancel()
     bootstrapJob = scope.launch { bootstrap(forceHealth = true, clearMessages = true) }
@@ -115,7 +116,7 @@ class ChatController(
 
   fun switchSession(sessionKey: String) {
     val key = sessionKey.trim()
-    Log.d("AgentDbg", "ChatController.switchSession: from=${_sessionKey.value} to=$key")
+    if (BuildConfig.DEBUG) Log.d("AgentDbg", "ChatController.switchSession: from=${_sessionKey.value} to=$key")
     if (key.isEmpty()) return
     if (key == _sessionKey.value) return
     _sessionKey.value = key
@@ -200,7 +201,7 @@ class ChatController(
               )
             }
           }
-        Log.d("ChatDbg", "chat.send start idempotencyKey=$runId sessionKey=$sessionKey")
+        if (BuildConfig.DEBUG) Log.d("ChatDbg", "chat.send start idempotencyKey=$runId sessionKey=$sessionKey")
         val res = session.request("chat.send", params.toString(), timeoutMs = 35_000)
         val actualRunId = parseRunId(res) ?: runId
         Log.d("ChatDbg", "chat.send response: actualRunId=$actualRunId (same=${actualRunId == runId}) res=$res")
@@ -341,17 +342,17 @@ class ChatController(
       // Accept the event if the gateway key ends with our key (e.g. "agent:x:chat-ts" ends with "chat-ts")
       // and update _sessionKey to the canonical form so future events match.
       if (_sessionKey.value.isNotEmpty() && sessionKey.endsWith(":${_sessionKey.value}")) {
-        Log.d("ChatDbg", "handleChatEvent: upgrading sessionKey ${_sessionKey.value} -> $sessionKey")
+        if (BuildConfig.DEBUG) Log.d("ChatDbg", "handleChatEvent: upgrading sessionKey ${_sessionKey.value} -> $sessionKey")
         _sessionKey.value = sessionKey
       } else {
-        Log.d("ChatDbg", "handleChatEvent: sessionKey mismatch event=$sessionKey current=${_sessionKey.value}, skipping")
+        if (BuildConfig.DEBUG) Log.d("ChatDbg", "handleChatEvent: sessionKey mismatch event=$sessionKey current=${_sessionKey.value}, skipping")
         return
       }
     }
 
     val runId = payload["runId"].asStringOrNull()
     val state = payload["state"].asStringOrNull()
-    Log.d("ChatDbg", "handleChatEvent: state=$state runId=$runId sessionKey=$sessionKey pendingRuns=${synchronized(pendingRuns){pendingRuns.toList()}}")
+    if (BuildConfig.DEBUG) Log.d("ChatDbg", "handleChatEvent: state=$state runId=$runId sessionKey=$sessionKey pendingRuns=${synchronized(pendingRuns){pendingRuns.toList()}}")
     if (runId != null) {
       val isPending =
         synchronized(pendingRuns) {

@@ -65,7 +65,7 @@ fun buildGatewayTlsConfig(
       override fun getAcceptedIssuers(): Array<X509Certificate> = defaultTrust.acceptedIssuers
     }
 
-  val context = SSLContext.getInstance("TLS")
+  val context = SSLContext.getInstance("TLSv1.2")
   context.init(null, arrayOf(trustManager), SecureRandom())
   val verifier =
     if (expected != null || params.allowTOFU) {
@@ -105,13 +105,17 @@ suspend fun probeGatewayTlsFingerprint(
         override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
       }
 
-    val context = SSLContext.getInstance("TLS")
+    val context = SSLContext.getInstance("TLSv1.2")
     context.init(null, arrayOf(trustAll), SecureRandom())
 
     // Use createSocket() and connect() with timeout to ensure we don't hang on TCP connect.
     var socket: SSLSocket? = null
     try {
       val rawSocket = context.socketFactory.createSocket() as SSLSocket
+      // Enforce TLS 1.2+ only
+      rawSocket.enabledProtocols = rawSocket.supportedProtocols.filter {
+        it == "TLSv1.2" || it == "TLSv1.3"
+      }.toTypedArray()
       rawSocket.soTimeout = timeoutMs
       rawSocket.connect(InetSocketAddress(trimmedHost, port), timeoutMs)
       socket = rawSocket

@@ -1,5 +1,5 @@
 # OpenClaw Assistant 🦞
-![CI](https://github.com/yuga-hashimoto/OpenClawAssistant/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/Nomadcxx/openclaw-assistant/actions/workflows/ci.yml/badge.svg)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/R5R51S97C4)
 
@@ -72,7 +72,7 @@
 
 #### 1. Install the App
 
-Download APK from [Releases](https://github.com/yuga-hashimoto/OpenClawAssistant/releases), or build from source.
+Download APK from [Releases](https://github.com/Nomadcxx/openclaw-assistant/releases), or build from source.
 
 #### 2. Gateway Connection (Recommended)
 
@@ -266,7 +266,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 #### 1. アプリのインストール
 
-[Releases](https://github.com/yuga-hashimoto/OpenClawAssistant/releases) からAPKをダウンロード、またはソースからビルド。
+[Releases](https://github.com/Nomadcxx/openclaw-assistant/releases) からAPKをダウンロード、またはソースからビルド。
 
 #### 2. Gateway接続（推奨）
 
