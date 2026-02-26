@@ -133,6 +133,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch {
                 nodeRuntime.chatSessionKey.collect { key ->
                     _currentSessionId.value = key
+                    // Extract agentId from session key format: "agent:<agentId>:<sessionName>"
+                    val agentId = if (key.startsWith("agent:")) {
+                        key.removePrefix("agent:").substringBefore(":")
+                    } else null
+                    _uiState.update { it.copy(selectedAgentId = agentId) }
                 }
             }
             viewModelScope.launch {
@@ -274,10 +279,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Initialize default agent from settings
+        // Initialize default agent from settings (HTTP mode only; in Gateway mode,
+        // the agent is resolved from the session key in chatSessionKey.collect above)
         val savedAgentId = settings.defaultAgentId
         if (savedAgentId.isNotBlank() && savedAgentId != "main") {
-            _uiState.update { it.copy(defaultAgentId = savedAgentId, selectedAgentId = savedAgentId) }
+            if (useNodeChat) {
+                _uiState.update { it.copy(defaultAgentId = savedAgentId) }
+            } else {
+                _uiState.update { it.copy(defaultAgentId = savedAgentId, selectedAgentId = savedAgentId) }
+            }
         }
 
     }
@@ -321,6 +331,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             if (!initialTitle.isNullOrBlank()) {
                 _initialSessionTitle.value = initialTitle
             }
+            nodeRuntime.switchChatSession(sessionId)
             nodeRuntime.loadChat(sessionId)
             // After bootstrap (chat.history), re-apply the session label.
             // The gateway creates new sessions with the device name as default label,
@@ -407,11 +418,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(selectedAgentId = agentId) }
         if (agentId.isNullOrBlank()) return
         if (useNodeChat) {
-            // Agent is determined by sessionKey format: "agent:<agentId>:main"
-            val sessionKey = "agent:$agentId:main"
-            Log.d("AgentDbg", "setAgent: switching gateway session to $sessionKey")
-            nodeRuntime.switchChatSession(sessionKey)
-            nodeRuntime.loadChat(sessionKey)
+            // Gateway mode: agent is fixed per session key, do not switch sessions.
+            // Agent selection is only available at session creation time.
+            return
         }
         // HTTP mode: agentId is sent via x-openclaw-agent-id header in sendViaHttp
     }
