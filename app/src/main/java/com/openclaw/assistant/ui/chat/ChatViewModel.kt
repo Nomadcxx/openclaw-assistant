@@ -431,7 +431,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     nodeRuntime.sendChat(
                         message = text,
                         thinking = "low",
-                        attachments = emptyList()
+                        attachments = emptyList(),
+                        agentId = getEffectiveAgentId()
                     )
                 } catch (e: Exception) {
                     pendingNodeChatTts = false
