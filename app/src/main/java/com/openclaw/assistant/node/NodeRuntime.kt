@@ -288,7 +288,7 @@ class NodeRuntime(context: Context) {
       scope = scope,
       session = operatorSession,
       json = json,
-      supportsChatSubscribe = true,
+      supportsChatSubscribe = false, // node.event is node-role only; operator connections receive events automatically
     )
 
   private fun applyMainSessionKey(candidate: String?) {
