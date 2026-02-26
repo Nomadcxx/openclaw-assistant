@@ -401,11 +401,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAgent(agentId: String?) {
         _uiState.update { it.copy(selectedAgentId = agentId) }
+        if (agentId.isNullOrBlank()) return
+        // Agent is determined by sessionKey format: "agent:<agentId>:main"
+        val sessionKey = "agent:$agentId:main"
         if (useNodeChat) {
-            // Agent is determined by sessionKey format: "agent:<agentId>:main"
-            val sessionKey = if (!agentId.isNullOrBlank()) "agent:$agentId:main" else nodeRuntime.chatSessionKey.value
             nodeRuntime.switchChatSession(sessionKey)
             nodeRuntime.loadChat(sessionKey)
+        } else {
+            // In HTTP mode, sessionId is sent as the "user" field and determines which agent runs.
+            // Overriding it here ensures the HTTP request routes to the selected agent's session.
+            _currentSessionId.value = sessionKey
         }
     }
 
