@@ -88,9 +88,11 @@ class ChatController(
 
   fun applyMainSessionKey(mainSessionKey: String) {
     val trimmed = mainSessionKey.trim()
+    Log.d("AgentDbg", "ChatController.applyMainSessionKey: current=${_sessionKey.value} candidate=$trimmed")
     if (trimmed.isEmpty()) return
     if (_sessionKey.value == trimmed) return
     if (_sessionKey.value != "main") return
+    Log.d("AgentDbg", "ChatController.applyMainSessionKey: applying $trimmed (was 'main')")
     _sessionKey.value = trimmed
     bootstrapJob?.cancel()
     bootstrapJob = scope.launch { bootstrap(forceHealth = true, clearMessages = true) }
@@ -113,6 +115,7 @@ class ChatController(
 
   fun switchSession(sessionKey: String) {
     val key = sessionKey.trim()
+    Log.d("AgentDbg", "ChatController.switchSession: from=${_sessionKey.value} to=$key")
     if (key.isEmpty()) return
     if (key == _sessionKey.value) return
     _sessionKey.value = key

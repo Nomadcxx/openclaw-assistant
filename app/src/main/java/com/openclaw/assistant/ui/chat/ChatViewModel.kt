@@ -287,6 +287,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val agentId = _uiState.value.selectedAgentId
             val ts = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(java.util.Date())
             val key = if (!agentId.isNullOrBlank()) "agent:$agentId:chat-$ts" else "chat-$ts"
+            Log.d("AgentDbg", "createNewSession: selectedAgentId=$agentId key=$key")
             nodeRuntime.switchChatSession(key)
             nodeRuntime.loadChat(key)
             nodeRuntime.refreshChatSessions()
@@ -402,11 +403,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setAgent(agentId: String?) {
+        Log.d("AgentDbg", "setAgent: agentId=$agentId useNodeChat=$useNodeChat")
         _uiState.update { it.copy(selectedAgentId = agentId) }
         if (agentId.isNullOrBlank()) return
         if (useNodeChat) {
             // Agent is determined by sessionKey format: "agent:<agentId>:main"
             val sessionKey = "agent:$agentId:main"
+            Log.d("AgentDbg", "setAgent: switching gateway session to $sessionKey")
             nodeRuntime.switchChatSession(sessionKey)
             nodeRuntime.loadChat(sessionKey)
         }
