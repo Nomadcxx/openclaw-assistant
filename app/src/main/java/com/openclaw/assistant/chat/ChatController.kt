@@ -337,8 +337,16 @@ class ChatController(
     val payload = json.parseToJsonElement(payloadJson).asObjectOrNull() ?: return
     val sessionKey = payload["sessionKey"].asStringOrNull()?.trim()
     if (!sessionKey.isNullOrEmpty() && sessionKey != _sessionKey.value) {
-      Log.d("ChatDbg", "handleChatEvent: sessionKey mismatch event=$sessionKey current=${_sessionKey.value}, skipping")
-      return
+      // Gateway may return a canonical "agent:<id>:<name>" key even if we sent a bare "<name>" key.
+      // Accept the event if the gateway key ends with our key (e.g. "agent:x:chat-ts" ends with "chat-ts")
+      // and update _sessionKey to the canonical form so future events match.
+      if (_sessionKey.value.isNotEmpty() && sessionKey.endsWith(":${_sessionKey.value}")) {
+        Log.d("ChatDbg", "handleChatEvent: upgrading sessionKey ${_sessionKey.value} -> $sessionKey")
+        _sessionKey.value = sessionKey
+      } else {
+        Log.d("ChatDbg", "handleChatEvent: sessionKey mismatch event=$sessionKey current=${_sessionKey.value}, skipping")
+        return
+      }
     }
 
     val runId = payload["runId"].asStringOrNull()
